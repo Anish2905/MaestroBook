@@ -119,11 +119,19 @@ export default function PartyLedger({ openModal }) {
   })
 
   function getBalance(party) {
-    if (!party) return 0
-    if (party.party_type === 'Customer' || party.party_type === 'Both') {
-      return party.total_sales + party.opening_balance - party.total_receipts
+    if (!party) return 0;
+    let bal = 0;
+    if (party.party_type === 'Customer') {
+      bal = party.total_sales + party.opening_balance - party.total_receipts - (party.total_overrides || 0);
+    } else if (party.party_type === 'Vendor') {
+      bal = -(party.total_purchases + party.opening_balance - party.total_payments + (party.total_overrides || 0));
+    } else {
+      // 'Both' type: Combine all accounting buckets
+      bal = (party.total_sales + party.opening_balance - party.total_receipts) -
+            (party.total_purchases - party.total_payments) -
+            (party.total_overrides || 0);
     }
-    return party.total_purchases + party.opening_balance - party.total_payments
+    return bal;
   }
 
   function handleEditInvoice(inv) {

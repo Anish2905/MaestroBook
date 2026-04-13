@@ -3,28 +3,38 @@ import { queryAll, runSql, audit } from '../db.js';
 
 const router = Router();
 
-// GET payable balances
+// GET payable balances (Who we owe money to)
 router.get('/payable', async (req, res) => {
   try {
     const rows = await queryAll(`
-      SELECT p.party_id, p.party_name, p.opening_balance,
-        COALESCE(SUM(CASE WHEN i.invoice_type='Purchase' THEN i.amount ELSE 0 END), 0) as total_invoiced,
-        COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.party_id = p.party_id AND t.txn_type='Payment Made' AND t.is_deleted=0), 0) as total_paid,
+      SELECT p.party_id, p.party_name, p.party_type, p.opening_balance,
+        COALESCE((SELECT SUM(i.amount) FROM invoices i WHERE i.party_id=p.party_id AND i.invoice_type='Sale' AND i.is_deleted=0), 0) as sales,
+        COALESCE((SELECT SUM(i.amount) FROM invoices i WHERE i.party_id=p.party_id AND i.invoice_type='Purchase' AND i.is_deleted=0), 0) as purchases,
+        COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.party_id=p.party_id AND t.txn_type='Receipt' AND t.is_deleted=0), 0) as receipts,
+        COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.party_id=p.party_id AND t.txn_type='Payment Made' AND t.is_deleted=0), 0) as payments,
         COALESCE((SELECT SUM(bo.override_amount) FROM balance_overrides bo WHERE bo.party_id = p.party_id), 0) as total_overrides
-      FROM parties p LEFT JOIN invoices i ON i.party_id = p.party_id AND i.is_deleted = 0
-      WHERE p.party_type IN ('Vendor','Both') AND p.is_deleted = 0
-      GROUP BY p.party_id
+      FROM parties p WHERE p.is_deleted = 0
     `);
     
-    // Sort and filter in JS
-    const result = rows.filter(r => {
-      const bal = r.total_invoiced + r.opening_balance - r.total_paid - r.total_overrides;
-      return bal > 0;
-    }).sort((a, b) => {
-      const balA = a.total_invoiced + a.opening_balance - a.total_paid - a.total_overrides;
-      const balB = b.total_invoiced + b.opening_balance - b.total_paid - b.total_overrides;
-      return balB - balA;
-    });
+    const result = rows.map(r => {
+      let bal = 0;
+      if (r.party_type === 'Customer') {
+        bal = r.opening_balance + r.sales - r.receipts - r.total_overrides;
+      } else if (r.party_type === 'Vendor') {
+        bal = -(r.opening_balance + r.purchases - r.payments + r.total_overrides);
+      } else {
+        bal = (r.opening_balance + r.sales - r.receipts) - (r.purchases - r.payments) - r.total_overrides;
+      }
+      return { ...r, net_balance: bal };
+    })
+    .filter(r => r.net_balance < 0) // We owe them money
+    .map(r => ({
+      ...r,
+      total_invoiced: r.purchases,
+      total_paid: r.payments,
+      display_balance: Math.abs(r.net_balance)
+    }))
+    .sort((a, b) => b.display_balance - a.display_balance);
 
     res.json(result);
   } catch (err) {
@@ -32,28 +42,38 @@ router.get('/payable', async (req, res) => {
   }
 });
 
-// GET receivable balances
+// GET receivable balances (Who owes us money)
 router.get('/receivable', async (req, res) => {
   try {
     const rows = await queryAll(`
-      SELECT p.party_id, p.party_name, p.opening_balance,
-        COALESCE(SUM(CASE WHEN i.invoice_type='Sale' THEN i.amount ELSE 0 END), 0) as total_billed,
-        COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.party_id = p.party_id AND t.txn_type='Receipt' AND t.is_deleted=0), 0) as total_received,
+      SELECT p.party_id, p.party_name, p.party_type, p.opening_balance,
+        COALESCE((SELECT SUM(i.amount) FROM invoices i WHERE i.party_id=p.party_id AND i.invoice_type='Sale' AND i.is_deleted=0), 0) as sales,
+        COALESCE((SELECT SUM(i.amount) FROM invoices i WHERE i.party_id=p.party_id AND i.invoice_type='Purchase' AND i.is_deleted=0), 0) as purchases,
+        COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.party_id=p.party_id AND t.txn_type='Receipt' AND t.is_deleted=0), 0) as receipts,
+        COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.party_id=p.party_id AND t.txn_type='Payment Made' AND t.is_deleted=0), 0) as payments,
         COALESCE((SELECT SUM(bo.override_amount) FROM balance_overrides bo WHERE bo.party_id = p.party_id), 0) as total_overrides
-      FROM parties p LEFT JOIN invoices i ON i.party_id = p.party_id AND i.is_deleted = 0
-      WHERE p.party_type IN ('Customer','Both') AND p.is_deleted = 0
-      GROUP BY p.party_id
+      FROM parties p WHERE p.is_deleted = 0
     `);
 
-    // Sort and filter in JS
-    const result = rows.filter(r => {
-      const bal = r.total_billed + r.opening_balance - r.total_received - r.total_overrides;
-      return bal > 0;
-    }).sort((a, b) => {
-      const balA = a.total_billed + a.opening_balance - a.total_received - a.total_overrides;
-      const balB = b.total_billed + b.opening_balance - b.total_received - b.total_overrides;
-      return balB - balA;
-    });
+    const result = rows.map(r => {
+      let bal = 0;
+      if (r.party_type === 'Customer') {
+        bal = r.opening_balance + r.sales - r.receipts - r.total_overrides;
+      } else if (r.party_type === 'Vendor') {
+        bal = -(r.opening_balance + r.purchases - r.payments + r.total_overrides);
+      } else {
+        bal = (r.opening_balance + r.sales - r.receipts) - (r.purchases - r.payments) - r.total_overrides;
+      }
+      return { ...r, net_balance: bal };
+    })
+    .filter(r => r.net_balance > 0) // They owe us money
+    .map(r => ({
+      ...r,
+      total_billed: r.sales,
+      total_received: r.receipts,
+      display_balance: r.net_balance
+    }))
+    .sort((a, b) => b.display_balance - a.display_balance);
 
     res.json(result);
   } catch (err) {

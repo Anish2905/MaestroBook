@@ -6,21 +6,42 @@ const router = Router();
 // GET dashboard metrics
 router.get('/metrics', async (req, res) => {
   try {
-    const totalSalesRow = await queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM invoices WHERE invoice_type='Sale' AND is_deleted=0`);
-    const totalReceiptsRow = await queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE txn_type='Receipt' AND is_deleted=0`);
-    const customerOpeningBalRow = await queryOne(`SELECT COALESCE(SUM(opening_balance), 0) as total FROM parties WHERE party_type IN ('Customer','Both') AND is_deleted=0`);
+    // We calculate a unified balance for every party:
+    // For Customers: Bal = Opening + Sales - Receipts - Overrides
+    // For Vendors:   Bal = -(Opening + Purchases - Payments + Overrides)  <-- to make it positive in "To Pay"
+    // For 'Both':    Bal = (Opening + Sales - Receipts) - (Purchases - Payments) - Overrides
     
-    // BUG FIX #4: customerOpeningBalRow should be added, not subtracted
-    // customers with positive opening balance owe us money.
-    const toGet = (totalSalesRow?.total || 0) + (customerOpeningBalRow?.total || 0) - (totalReceiptsRow?.total || 0);
+    // However, to be robust, we calculate the NET DEBT for every party.
+    // positive = they owe us (toGet), negative = we owe them (toPay).
+    const parties = await queryAll(`
+      SELECT 
+        p.party_id, p.party_type, p.opening_balance,
+        COALESCE((SELECT SUM(amount) FROM invoices WHERE party_id=p.party_id AND invoice_type='Sale' AND is_deleted=0), 0) as sales,
+        COALESCE((SELECT SUM(amount) FROM invoices WHERE party_id=p.party_id AND invoice_type='Purchase' AND is_deleted=0), 0) as purchases,
+        COALESCE((SELECT SUM(amount) FROM transactions WHERE party_id=p.party_id AND txn_type='Receipt' AND is_deleted=0), 0) as receipts,
+        COALESCE((SELECT SUM(amount) FROM transactions WHERE party_id=p.party_id AND txn_type='Payment Made' AND is_deleted=0), 0) as payments,
+        COALESCE((SELECT SUM(override_amount) FROM balance_overrides WHERE party_id=p.party_id), 0) as overrides
+      FROM parties p WHERE p.is_deleted=0
+    `);
 
-    const totalPurchasesRow = await queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM invoices WHERE invoice_type='Purchase' AND is_deleted=0`);
-    
-    // BUG FIX #5: Remove "linked_invoice_id IS NOT NULL" to properly account for all vendor payments
-    const totalPaymentsRow = await queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE txn_type='Payment Made' AND party_id IS NOT NULL AND is_deleted=0`);
-    const vendorOpeningBalRow = await queryOne(`SELECT COALESCE(SUM(opening_balance), 0) as total FROM parties WHERE party_type IN ('Vendor','Both') AND is_deleted=0`);
-    
-    const toPay = (totalPurchasesRow?.total || 0) + (vendorOpeningBalRow?.total || 0) - (totalPaymentsRow?.total || 0);
+    let toGet = 0;
+    let toPay = 0;
+
+    parties.forEach(p => {
+      let bal = 0;
+      if (p.party_type === 'Customer') {
+        bal = p.opening_balance + p.sales - p.receipts - p.overrides;
+      } else if (p.party_type === 'Vendor') {
+        // For vendors, opening_balance is what we owe them (Cr), so it's negative in Dr context.
+        bal = -(p.opening_balance + p.purchases - p.payments + p.overrides);
+      } else {
+        // 'Both'
+        bal = (p.opening_balance + p.sales - p.receipts) - (p.purchases - p.payments) - p.overrides;
+      }
+
+      if (bal > 0) toGet += bal;
+      if (bal < 0) toPay += Math.abs(bal);
+    });
 
     const netBalance = toGet - toPay;
 

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { queryAll, queryOne, runSql, audit } from '../db.js';
+import { queryAll, queryOne, runSql, audit, db } from '../db.js';
 import { partySchema, validateRequest } from '../validators.js';
 
 const router = Router();
@@ -9,7 +9,8 @@ const partySql = `
     COALESCE((SELECT SUM(i.amount) FROM invoices i WHERE i.party_id=p.party_id AND i.invoice_type='Sale' AND i.is_deleted=0),0) as total_sales,
     COALESCE((SELECT SUM(i.amount) FROM invoices i WHERE i.party_id=p.party_id AND i.invoice_type='Purchase' AND i.is_deleted=0),0) as total_purchases,
     COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.party_id=p.party_id AND t.txn_type='Receipt' AND t.is_deleted=0),0) as total_receipts,
-    COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.party_id=p.party_id AND t.txn_type='Payment Made' AND t.is_deleted=0),0) as total_payments
+    COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.party_id=p.party_id AND t.txn_type='Payment Made' AND t.is_deleted=0),0) as total_payments,
+    COALESCE((SELECT SUM(bo.override_amount) FROM balance_overrides bo WHERE bo.party_id=p.party_id),0) as total_overrides
   FROM parties p
 `;
 
@@ -83,9 +84,15 @@ router.delete('/:id', async (req, res) => {
     const old = await queryOne('SELECT * FROM parties WHERE party_id=?', [id]);
     if (!old) return res.status(404).json({ error: 'Party not found' });
 
-    await runSql(`UPDATE parties SET is_deleted=1, updated_at=datetime('now') WHERE party_id=?`, [id]);
+    // Atomic cascading soft-delete
+    await db.batch([
+      { sql: `UPDATE parties SET is_deleted=1, updated_at=datetime('now') WHERE party_id=?`, args: [id] },
+      { sql: `UPDATE invoices SET is_deleted=1, updated_at=datetime('now') WHERE party_id=?`, args: [id] },
+      { sql: `UPDATE transactions SET is_deleted=1, updated_at=datetime('now') WHERE party_id=?`, args: [id] },
+      { sql: `UPDATE balance_overrides SET is_deleted=1 WHERE party_id=?`, args: [id] }
+    ], "write");
     
-    const auditRemarks = `Deleted: ${old.party_name}${reason ? ` | Reason: ${reason}` : ''}${device_info ? ` [Device: ${device_info}]` : ''}`;
+    const auditRemarks = `Cascading Delete: ${old.party_name}${reason ? ` | Reason: ${reason}` : ''}${device_info ? ` [Device: ${device_info}]` : ''} — All associated invoices and transactions marked as deleted.`;
     await audit('DELETE', 'parties', id, old, null, auditRemarks);
     
     res.json({ success: true });

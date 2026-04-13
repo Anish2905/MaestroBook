@@ -99,9 +99,7 @@ export default function BalanceTracker({ openModal }) {
                     ? row.total_invoiced + row.opening_balance
                     : row.total_billed + row.opening_balance
                   const totalPaid = activeTab === 'payable' ? row.total_paid : row.total_received
-                  const balance = activeTab === 'payable'
-                    ? row.total_invoiced + row.opening_balance - row.total_paid - row.total_overrides
-                    : row.total_billed + row.opening_balance - row.total_received - row.total_overrides
+                  const balance = row.display_balance
                   const pct = totalInvoiced > 0 ? Math.round((totalPaid / totalInvoiced) * 100) : 0
 
                   return (
