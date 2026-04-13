@@ -21,7 +21,7 @@ const NAV_ITEMS = [
   }
 ]
 
-export default function Sidebar({ activeScreen, onNavigate, backupInfo }) {
+export default function Sidebar({ activeScreen, onNavigate, backupInfo, isOpen, onClose }) {
   const backupDisplay = useMemo(() => {
     return {
       line1: '✓ Auto-synced',
@@ -30,37 +30,40 @@ export default function Sidebar({ activeScreen, onNavigate, backupInfo }) {
   }, [backupInfo])
 
   return (
-    <div className="sidebar">
-      <div className="sidebar-brand">
-        <img src={logo} className="sidebar-logo" alt="Maestro Logo" />
-        <div className="sidebar-brand-name">Maestro Engineering</div>
-        <div className="sidebar-brand-sub">BOOKKEEPING · FY 2025–26</div>
-      </div>
+    <>
+      <div className={`sidebar-overlay ${isOpen ? 'active' : ''}`} onClick={onClose} />
+      <div className={`sidebar ${isOpen ? 'mobile-open' : ''}`}>
+        <div className="sidebar-brand">
+          <img src={logo} className="sidebar-logo" alt="Maestro Logo" />
+          <div className="sidebar-brand-name">Maestro Engineering</div>
+          <div className="sidebar-brand-sub">BOOKKEEPING · FY 2025–26</div>
+        </div>
 
-      <nav className="sidebar-nav">
-        {NAV_ITEMS.map(group => (
-          <div key={group.group}>
-            <div className="nav-label">{group.group}</div>
-            {group.items.map(item => (
-              <button
-                key={item.id}
-                className={`nav-item ${activeScreen === item.id ? 'active' : ''}`}
-                onClick={() => onNavigate(item.id)}
-              >
-                <span className="nav-icon">{item.icon}</span>
-                {item.label}
-              </button>
-            ))}
+        <nav className="sidebar-nav">
+          {NAV_ITEMS.map(group => (
+            <div key={group.group}>
+              <div className="nav-label">{group.group}</div>
+              {group.items.map(item => (
+                <button
+                  key={item.id}
+                  className={`nav-item ${activeScreen === item.id ? 'active' : ''}`}
+                  onClick={() => onNavigate(item.id)}
+                >
+                  <span className="nav-icon">{item.icon}</span>
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className="backup-chip">
+            <div className="backup-chip-line1">{backupDisplay.line1}</div>
+            <div className="backup-chip-line2">{backupDisplay.line2}</div>
           </div>
-        ))}
-      </nav>
-
-      <div className="sidebar-footer">
-        <div className="backup-chip">
-          <div className="backup-chip-line1">{backupDisplay.line1}</div>
-          <div className="backup-chip-line2">{backupDisplay.line2}</div>
         </div>
       </div>
-    </div>
+    </>
   )
 }

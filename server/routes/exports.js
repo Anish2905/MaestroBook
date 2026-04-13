@@ -245,12 +245,24 @@ router.get('/full-data', async (req, res) => {
     styleWorksheet(wsT);
 
     const logs = await queryAll('SELECT * FROM audit_log ORDER BY changed_at DESC');
-    const wsA = workbook.addWorksheet('Audit Log');
+    const wsA = workbook.addWorksheet('Detailed Audit Log');
     wsA.columns = [
-      { header: 'ID', key: 'log_id' }, { header: 'Time', key: 'changed_at' }, { header: 'Action', key: 'action_type' },
-      { header: 'Table', key: 'table_affected' }, { header: 'Record ID', key: 'record_id' }, { header: 'Details', key: 'remarks' }
+      { header: 'ID', key: 'log_id' },
+      { header: 'Timestamp', key: 'changed_at' },
+      { header: 'Action', key: 'action_type' },
+      { header: 'Table', key: 'table_affected' },
+      { header: 'Record ID', key: 'record_id' },
+      { header: 'Summary', key: 'remarks' },
+      { header: 'Previous Data', key: 'old_value' },
+      { header: 'New Data', key: 'new_value' }
     ];
-    logs.forEach(l => wsA.addRow(l));
+    logs.forEach(l => {
+      wsA.addRow({
+        ...l,
+        old_value: l.old_value ? JSON.stringify(JSON.parse(l.old_value), null, 2) : '—',
+        new_value: l.new_value ? JSON.stringify(JSON.parse(l.new_value), null, 2) : '—'
+      });
+    });
     styleWorksheet(wsA);
 
     await sendWorkbook(res, workbook, 'FullDataExport.xlsx');

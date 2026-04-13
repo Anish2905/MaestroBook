@@ -54,7 +54,7 @@ function buildDescription(log) {
     const ptype = newVal?.party_type || oldVal?.party_type || ''
     if (action === 'INSERT') return `Added new party "${name}" (${ptype})`
     if (action === 'UPDATE') return `Updated party "${name}"`
-    if (action === 'DELETE') return `Deleted party "${name}"`
+    if (action === 'DELETE') return log.remarks || `Deleted party "${name}"`
   }
 
   if (table === 'invoices') {
@@ -64,7 +64,7 @@ function buildDescription(log) {
     const amtStr = amt ? formatCurrency(amt) : ''
     if (action === 'INSERT') return `Created ${invType} invoice ${invNo} for ${amtStr}`
     if (action === 'UPDATE') return `Updated invoice ${invNo} (${invType} ${amtStr})`
-    if (action === 'DELETE') return `Deleted invoice ${invNo} (${amtStr})`
+    if (action === 'DELETE') return log.remarks || `Deleted invoice ${invNo} (${amtStr})`
   }
 
   if (table === 'transactions') {
@@ -74,7 +74,7 @@ function buildDescription(log) {
     const cat = newVal?.category || oldVal?.category || ''
     if (action === 'INSERT') return `Recorded ${txnType} of ${amtStr}${cat ? ` (${cat})` : ''}`
     if (action === 'UPDATE') return `Updated ${txnType} #${log.record_id} — ${amtStr}`
-    if (action === 'DELETE') return `Deleted ${txnType} of ${amtStr}`
+    if (action === 'DELETE') return log.remarks || `Deleted ${txnType} of ${amtStr}`
   }
 
   if (table === 'balance_overrides') {
@@ -247,44 +247,46 @@ export default function AuditLog() {
 
                 {isExpanded && diffItems.length > 0 && (
                   <div className="audit-item-detail">
-                    <table className="audit-diff-table">
-                      <thead>
-                        <tr>
-                          <th>Field</th>
-                          {log.action_type === 'UPDATE' ? (
-                            <>
-                              <th>Old Value</th>
-                              <th>New Value</th>
-                            </>
-                          ) : log.action_type === 'DELETE' ? (
-                            <th>Value (deleted)</th>
-                          ) : (
-                            <th>Value</th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {diffItems.map((item, idx) => (
-                          <tr key={idx}>
-                            <td className="mono" style={{ color: 'var(--accent2)', fontSize: 11 }}>{item.field}</td>
+                    <div className="table-responsive">
+                      <table className="audit-diff-table">
+                        <thead>
+                          <tr>
+                            <th>Field</th>
                             {log.action_type === 'UPDATE' ? (
                               <>
-                                <td className="text-red mono" style={{ fontSize: 11, textDecoration: 'line-through', opacity: 0.7 }}>
-                                  {item.oldVal || '—'}
-                                </td>
-                                <td className="text-green mono" style={{ fontSize: 11 }}>
-                                  {item.newVal || '—'}
-                                </td>
+                                <th>Old Value</th>
+                                <th>New Value</th>
                               </>
                             ) : log.action_type === 'DELETE' ? (
-                              <td className="text-red mono" style={{ fontSize: 11 }}>{item.oldVal || '—'}</td>
+                              <th>Value (deleted)</th>
                             ) : (
-                              <td className="text-green mono" style={{ fontSize: 11 }}>{item.newVal || '—'}</td>
+                              <th>Value</th>
                             )}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {diffItems.map((item, idx) => (
+                            <tr key={idx}>
+                              <td className="mono" style={{ color: 'var(--accent2)', fontSize: 11 }}>{item.field}</td>
+                              {log.action_type === 'UPDATE' ? (
+                                <>
+                                  <td className="text-red mono" style={{ fontSize: 11, textDecoration: 'line-through', opacity: 0.7 }}>
+                                    {item.oldVal || '—'}
+                                  </td>
+                                  <td className="text-green mono" style={{ fontSize: 11 }}>
+                                    {item.newVal || '—'}
+                                  </td>
+                                </>
+                              ) : log.action_type === 'DELETE' ? (
+                                <td className="text-red mono" style={{ fontSize: 11 }}>{item.oldVal || '—'}</td>
+                              ) : (
+                                <td className="text-green mono" style={{ fontSize: 11 }}>{item.newVal || '—'}</td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
 

@@ -24,6 +24,7 @@ const SCREENS = {
 
 function AppInner() {
   const [activeScreen, setActiveScreen] = useState('dashboard')
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [modalType, setModalType] = useState(null)
   const [modalData, setModalData] = useState(null)
@@ -98,8 +99,13 @@ function AppInner() {
     <div className="app-layout">
       <Sidebar
         activeScreen={activeScreen}
-        onNavigate={setActiveScreen}
+        onNavigate={(screen) => {
+          setActiveScreen(screen)
+          setIsSidebarOpen(false)
+        }}
         backupInfo={backupInfo}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
       />
       <div className="main-area">
         {!integrityOk && (
@@ -111,6 +117,7 @@ function AppInner() {
           title={screen.title}
           onNewEntry={() => openModal()}
           onBackupNow={handleBackupNow}
+          onMenuClick={() => setIsSidebarOpen(true)}
         />
         <div className="content-area">
           <ScreenComponent

@@ -60,14 +60,14 @@ export const api = {
   getParty: (id) => fetchJSON(`/parties/${id}`),
   createParty: (data) => fetchJSON('/parties', { method: 'POST', body: JSON.stringify(data) }),
   updateParty: (id, data) => fetchJSON(`/parties/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteParty: (id) => fetchJSON(`/parties/${id}`, { method: 'DELETE' }),
+  deleteParty: (id, data) => fetchJSON(`/parties/${id}`, { method: 'DELETE', body: JSON.stringify(data) }),
   getPartyTransactions: (id) => fetchJSON(`/parties/${id}/transactions`),
 
   // Invoices
   getInvoices: (partyId) => fetchJSON(partyId ? `/invoices?partyId=${partyId}` : '/invoices'),
   createInvoice: (data) => fetchJSON('/invoices', { method: 'POST', body: JSON.stringify(data) }),
   updateInvoice: (id, data) => fetchJSON(`/invoices/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteInvoice: (id) => fetchJSON(`/invoices/${id}`, { method: 'DELETE' }),
+  deleteInvoice: (id, data) => fetchJSON(`/invoices/${id}`, { method: 'DELETE', body: JSON.stringify(data) }),
 
   // Transactions
   getTransactions: (filters = {}) => {
@@ -81,7 +81,7 @@ export const api = {
   getExpenseCategories: () => fetchJSON('/transactions/categories'),
   createTransaction: (data) => fetchJSON('/transactions', { method: 'POST', body: JSON.stringify(data) }),
   updateTransaction: (id, data) => fetchJSON(`/transactions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteTransaction: (id) => fetchJSON(`/transactions/${id}`, { method: 'DELETE' }),
+  deleteTransaction: (id, data) => fetchJSON(`/transactions/${id}`, { method: 'DELETE', body: JSON.stringify(data) }),
 
   // Balance
   getPayables: () => fetchJSON('/balance/payable'),

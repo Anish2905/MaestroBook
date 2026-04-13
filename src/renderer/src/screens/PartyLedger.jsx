@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { formatCurrency, formatDate, paiseToRupee } from '../utils/format'
 import { api } from '../api'
+import DeleteConfirmModal from '../components/DeleteConfirmModal'
 
 const FILTER_OPTIONS = [
   { value: 'all', label: 'All' },
@@ -47,6 +48,7 @@ export default function PartyLedger({ openModal }) {
   const [selectedId, setSelectedId] = useState(null)
   const [selectedParty, setSelectedParty] = useState(null)
   const [allTransactions, setAllTransactions] = useState([])
+  const [deleteConfig, setDeleteConfig] = useState(null) // { type, id, title }
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
 
@@ -73,25 +75,38 @@ export default function PartyLedger({ openModal }) {
     setAllTransactions(txns)
   }
 
-  async function handleDeleteParty(partyId) {
-    if (!confirm('Delete this party? All related invoices and transactions will remain in the system.')) return
-    await api.deleteParty(partyId)
-    setSelectedId(null)
-    setSelectedParty(null)
-    setAllTransactions([])
-    loadParties()
+  async function confirmDeletion({ reason, deviceInfo }) {
+    if (!deleteConfig) return
+    const { type, id } = deleteConfig
+    const payload = { reason, device_info: deviceInfo }
+
+    if (type === 'party') {
+      await api.deleteParty(id, payload)
+      setSelectedId(null)
+      setSelectedParty(null)
+      setAllTransactions([])
+      loadParties()
+    } else if (type === 'invoice') {
+      await api.deleteInvoice(id, payload)
+      if (selectedId) selectParty(selectedId)
+    } else if (type === 'transaction') {
+      await api.deleteTransaction(id, payload)
+      if (selectedId) selectParty(selectedId)
+    }
+
+    setDeleteConfig(null)
   }
 
-  async function handleDeleteInvoice(invoiceId) {
-    if (!confirm('Delete this invoice?')) return
-    await api.deleteInvoice(invoiceId)
-    if (selectedId) selectParty(selectedId)
+  function handleDeleteParty(partyId) {
+    setDeleteConfig({ type: 'party', id: partyId, title: `Party: ${selectedParty?.party_name}` })
   }
 
-  async function handleDeleteTransaction(txnId) {
-    if (!confirm('Delete this transaction?')) return
-    await api.deleteTransaction(txnId)
-    if (selectedId) selectParty(selectedId)
+  function handleDeleteInvoice(invoiceId) {
+    setDeleteConfig({ type: 'invoice', id: invoiceId, title: `Invoice #${invoiceId}` })
+  }
+
+  function handleDeleteTransaction(txnId) {
+    setDeleteConfig({ type: 'transaction', id: txnId, title: `Transaction #${txnId}` })
   }
 
   const filteredParties = parties.filter(p =>
@@ -137,7 +152,7 @@ export default function PartyLedger({ openModal }) {
   }
 
   return (
-    <div className="grid-1-2" style={{ height: 'calc(100vh - 56px - 40px)' }}>
+    <div className="grid-1-2 party-ledger-layout">
       {/* Left: Party List */}
       <div className="card party-list-panel">
         <div className="party-list-search">
@@ -260,81 +275,83 @@ export default function PartyLedger({ openModal }) {
               </div>
 
               <div className="card-body" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 380px)' }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Type</th>
-                      <th>Description</th>
-                      <th className="right">Amount</th>
-                      <th>Remarks</th>
-                      <th style={{ width: 80 }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredTransactions.map((txn, idx) => {
-                      const badge = getTypeBadge(txn.type)
-                      const amtColor = getAmountColor(txn.type)
-                      const prefix = getAmountPrefix(txn.type)
-                      return (
-                        <tr key={`${txn.source_table}-${txn.source_id}-${idx}`}>
-                          <td className="mono muted" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-                            {formatDate(txn.date)}
-                          </td>
-                          <td>
-                            <span className={`badge ${badge.cls}`}>{badge.label}</span>
-                          </td>
-                          <td style={{ fontSize: 12 }}>{txn.description || '—'}</td>
-                          <td className={`right mono ${amtColor}`} style={{ fontWeight: 500 }}>
-                            {prefix}{formatCurrency(txn.amount)}
-                          </td>
-                          <td className="muted" style={{ fontSize: 11, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {txn.remarks || '—'}
-                          </td>
-                          <td>
-                            <div className="flex gap-4" style={{ justifyContent: 'flex-end' }}>
-                              {txn.source_table === 'invoices' && (
-                                <>
-                                  <button
-                                    className="btn btn-ghost-sm"
-                                    style={{ padding: '3px 6px', fontSize: 10 }}
-                                    title="Edit invoice"
-                                    onClick={() => handleEditInvoice(txn)}
-                                  >✎</button>
-                                  <button
-                                    className="btn btn-danger-sm"
-                                    style={{ padding: '3px 6px', fontSize: 11 }}
-                                    title="Delete invoice"
-                                    onClick={() => handleDeleteInvoice(txn.source_id)}
-                                  >✕</button>
-                                </>
-                              )}
-                              {txn.source_table === 'transactions' && (
-                                <>
-                                  <button
-                                    className="btn btn-ghost-sm"
-                                    style={{ padding: '3px 6px', fontSize: 10 }}
-                                    title="Edit transaction"
-                                    onClick={() => handleEditTransaction(txn)}
-                                  >✎</button>
-                                  <button
-                                    className="btn btn-danger-sm"
-                                    style={{ padding: '3px 6px', fontSize: 11 }}
-                                    title="Delete transaction"
-                                    onClick={() => handleDeleteTransaction(txn.source_id)}
-                                  >✕</button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                    {filteredTransactions.length === 0 && (
-                      <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--muted)', padding: 24 }}>No transactions found</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                <div className="table-responsive">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                        <th className="right">Amount</th>
+                        <th>Remarks</th>
+                        <th style={{ width: 80 }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredTransactions.map((txn, idx) => {
+                        const badge = getTypeBadge(txn.type)
+                        const amtColor = getAmountColor(txn.type)
+                        const prefix = getAmountPrefix(txn.type)
+                        return (
+                          <tr key={`${txn.source_table}-${txn.source_id}-${idx}`}>
+                            <td className="mono muted" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+                              {formatDate(txn.date)}
+                            </td>
+                            <td>
+                              <span className={`badge ${badge.cls}`}>{badge.label}</span>
+                            </td>
+                            <td style={{ fontSize: 12 }}>{txn.description || '—'}</td>
+                            <td className={`right mono ${amtColor}`} style={{ fontWeight: 500 }}>
+                              {prefix}{formatCurrency(txn.amount)}
+                            </td>
+                            <td className="muted" style={{ fontSize: 11, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {txn.remarks || '—'}
+                            </td>
+                            <td>
+                              <div className="flex gap-4" style={{ justifyContent: 'flex-end' }}>
+                                {txn.source_table === 'invoices' && (
+                                  <>
+                                    <button
+                                      className="btn btn-ghost-sm"
+                                      style={{ padding: '3px 6px', fontSize: 10 }}
+                                      title="Edit invoice"
+                                      onClick={() => handleEditInvoice(txn)}
+                                    >✎</button>
+                                    <button
+                                      className="btn btn-danger-sm"
+                                      style={{ padding: '3px 6px', fontSize: 11 }}
+                                      title="Delete invoice"
+                                      onClick={() => handleDeleteInvoice(txn.source_id)}
+                                    >✕</button>
+                                  </>
+                                )}
+                                {txn.source_table === 'transactions' && (
+                                  <>
+                                    <button
+                                      className="btn btn-ghost-sm"
+                                      style={{ padding: '3px 6px', fontSize: 10 }}
+                                      title="Edit transaction"
+                                      onClick={() => handleEditTransaction(txn)}
+                                    >✎</button>
+                                    <button
+                                      className="btn btn-danger-sm"
+                                      style={{ padding: '3px 6px', fontSize: 11 }}
+                                      title="Delete transaction"
+                                      onClick={() => handleDeleteTransaction(txn.source_id)}
+                                    >✕</button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                      {filteredTransactions.length === 0 && (
+                        <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--muted)', padding: 24 }}>No transactions found</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </>
@@ -344,6 +361,13 @@ export default function PartyLedger({ openModal }) {
           </div>
         )}
       </div>
+      {deleteConfig && (
+        <DeleteConfirmModal
+          title={deleteConfig.title}
+          onConfirm={confirmDeletion}
+          onCancel={() => setDeleteConfig(null)}
+        />
+      )}
     </div>
   )
 }

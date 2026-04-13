@@ -3,12 +3,13 @@ import { api } from '../api'
 import { syncEvents, isOnline, queueDB, syncQueue } from '../utils/syncManager'
 import logo from '../assets/logo.png'
 
-export default function Topbar({ title, onNewEntry, onBackupNow }) {
+export default function Topbar({ title, onNewEntry, onBackupNow, onMenuClick }) {
   const [search, setSearch] = useState('')
   const [results, setResults] = useState(null)
   const [showResults, setShowResults] = useState(false)
   const [syncStatus, setSyncStatus] = useState('Online') // 'Online', 'Offline', 'Syncing'
   const [pendingItems, setPendingItems] = useState(0)
+  const [conflictItems, setConflictItems] = useState(0)
   
   const searchRef = useRef(null)
   const debounceRef = useRef(null)
@@ -26,7 +27,16 @@ export default function Topbar({ title, onNewEntry, onBackupNow }) {
   useEffect(() => {
     async function updateStatus() {
       const keys = await queueDB.keys()
+      
+      let conflicts = 0
+      for (const key of keys) {
+        const item = await queueDB.getItem(key)
+        if (item?.conflict) conflicts++
+      }
+      
       setPendingItems(keys.length)
+      setConflictItems(conflicts)
+      
       if (!await isOnline()) {
         setSyncStatus('Offline')
       } else if (keys.length === 0) {
@@ -87,6 +97,7 @@ export default function Topbar({ title, onNewEntry, onBackupNow }) {
 
   return (
     <div className="topbar">
+      <button className="mobile-menu-btn" onClick={onMenuClick}>☰</button>
       <img src={logo} className="topbar-logo" alt="Logo" />
       <div className="topbar-title">{title}</div>
       <div className="topbar-spacer" />
@@ -149,6 +160,11 @@ export default function Topbar({ title, onNewEntry, onBackupNow }) {
         {syncStatus === 'Online' && pendingItems > 0 && `☁ Syncing...`}
         {syncStatus === 'Online' && pendingItems === 0 && `☁ Synced`}
       </button>
+      {conflictItems > 0 && (
+        <div style={{ color: 'var(--red)', fontSize: 12, fontWeight: 500, padding: '4px 10px', background: 'var(--red-dim)', borderRadius: 6, marginLeft: 8 }}>
+          {conflictItems} Conflict{conflictItems > 1 ? 's' : ''} Detected
+        </div>
+      )}
     </div>
   )
 }

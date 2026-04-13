@@ -81,65 +81,67 @@ export default function BalanceTracker({ openModal }) {
           </button>
         </div>
         <div style={{ borderTop: '1px solid var(--border)' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>{activeTab === 'payable' ? 'Vendor' : 'Customer'}</th>
-                <th className="right">{activeTab === 'payable' ? 'Total Invoiced' : 'Total Billed'}</th>
-                <th className="right">{activeTab === 'payable' ? 'Total Paid' : 'Total Received'}</th>
-                <th className="right">Balance</th>
-                <th>{activeTab === 'payable' ? 'Cleared %' : 'Received %'}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map(row => {
-                const totalInvoiced = activeTab === 'payable'
-                  ? row.total_invoiced + row.opening_balance
-                  : row.total_billed + row.opening_balance
-                const totalPaid = activeTab === 'payable' ? row.total_paid : row.total_received
-                const balance = activeTab === 'payable'
-                  ? row.total_invoiced + row.opening_balance - row.total_paid - row.total_overrides
-                  : row.total_billed + row.opening_balance - row.total_received - row.total_overrides
-                const pct = totalInvoiced > 0 ? Math.round((totalPaid / totalInvoiced) * 100) : 0
+          <div className="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>{activeTab === 'payable' ? 'Vendor' : 'Customer'}</th>
+                  <th className="right">{activeTab === 'payable' ? 'Total Invoiced' : 'Total Billed'}</th>
+                  <th className="right">{activeTab === 'payable' ? 'Total Paid' : 'Total Received'}</th>
+                  <th className="right">Balance</th>
+                  <th>{activeTab === 'payable' ? 'Cleared %' : 'Received %'}</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map(row => {
+                  const totalInvoiced = activeTab === 'payable'
+                    ? row.total_invoiced + row.opening_balance
+                    : row.total_billed + row.opening_balance
+                  const totalPaid = activeTab === 'payable' ? row.total_paid : row.total_received
+                  const balance = activeTab === 'payable'
+                    ? row.total_invoiced + row.opening_balance - row.total_paid - row.total_overrides
+                    : row.total_billed + row.opening_balance - row.total_received - row.total_overrides
+                  const pct = totalInvoiced > 0 ? Math.round((totalPaid / totalInvoiced) * 100) : 0
 
-                return (
-                  <tr key={row.party_id}>
-                    <td style={{ fontWeight: 500 }}>{row.party_name}</td>
-                    <td className="right mono">{formatCurrency(totalInvoiced)}</td>
-                    <td className="right mono">{formatCurrency(totalPaid)}</td>
-                    <td className={`right mono ${activeTab === 'payable' ? 'text-red' : 'text-green'}`} style={{ fontWeight: 600 }}>
-                      {formatCurrency(balance)}
-                    </td>
-                    <td style={{ minWidth: 120 }}>
-                      <div className="progress-bar-bg">
-                        <div
-                          className={`progress-bar-fill ${getProgressColor(pct)}`}
-                          style={{ width: `${Math.min(pct, 100)}%` }}
-                        />
-                      </div>
-                      <div className="text-muted" style={{ fontSize: 9, marginTop: 3 }}>{pct}%</div>
-                    </td>
-                    <td>
-                      <button
-                        className="btn btn-ghost-sm"
-                        onClick={() => openModal(activeTab === 'payable' ? 'expense' : 'receipt', {
-                          party_id: String(row.party_id)
-                        })}
-                      >
-                        {activeTab === 'payable' ? '+ Pay' : '+ Receipt'}
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-              {data.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--muted)', padding: 30 }}>
-                  No outstanding balances
-                </td></tr>
-              )}
-            </tbody>
-          </table>
+                  return (
+                    <tr key={row.party_id}>
+                      <td style={{ fontWeight: 500 }}>{row.party_name}</td>
+                      <td className="right mono">{formatCurrency(totalInvoiced)}</td>
+                      <td className="right mono">{formatCurrency(totalPaid)}</td>
+                      <td className={`right mono ${activeTab === 'payable' ? 'text-red' : 'text-green'}`} style={{ fontWeight: 600 }}>
+                        {formatCurrency(balance)}
+                      </td>
+                      <td style={{ minWidth: 120 }}>
+                        <div className="progress-bar-bg">
+                          <div
+                            className={`progress-bar-fill ${getProgressColor(pct)}`}
+                            style={{ width: `${Math.min(pct, 100)}%` }}
+                          />
+                        </div>
+                        <div className="text-muted" style={{ fontSize: 9, marginTop: 3 }}>{pct}%</div>
+                      </td>
+                      <td>
+                        <button
+                          className="btn btn-ghost-sm"
+                          onClick={() => openModal(activeTab === 'payable' ? 'expense' : 'receipt', {
+                            party_id: String(row.party_id)
+                          })}
+                        >
+                          {activeTab === 'payable' ? '+ Pay' : '+ Receipt'}
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+                {data.length === 0 && (
+                  <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--muted)', padding: 30 }}>
+                    No outstanding balances
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

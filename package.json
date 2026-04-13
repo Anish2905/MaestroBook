@@ -17,7 +17,8 @@
     "dotenv": "^16.4.7",
     "exceljs": "^4.4.0",
     "express": "^4.21.0",
-    "localforage": "^1.10.0"
+    "localforage": "^1.10.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",

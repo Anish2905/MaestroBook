@@ -86,11 +86,14 @@ export async function syncQueue(apiBase) {
       });
       if (response.ok) {
         await queueDB.removeItem(item.key);
+      } else if (response.status === 409) {
+        // Conflict! The server record is newer than what we had.
+        console.warn('Sync conflict on item:', item);
+        await queueDB.setItem(item.key, { ...item, conflict: true, errorMsg: await response.text() });
+        hasErrors = true;
       } else {
         hasErrors = true;
         console.error('Failed to sync item:', item, await response.text());
-        // Depending on error (e.g. 400 Bad Request), you might want to discard it,
-        // but for now we leave it in the queue if it fails.
       }
     } catch (err) {
       console.error('Network error syncing item:', item, err);

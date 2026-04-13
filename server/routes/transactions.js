@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { queryAll, queryOne, runSql, audit } from '../db.js';
+import { transactionSchema, validateRequest } from '../validators.js';
 
 const router = Router();
 
@@ -76,7 +77,7 @@ router.get('/summary', async (req, res) => {
 });
 
 // CREATE transaction
-router.post('/', async (req, res) => {
+router.post('/', validateRequest(transactionSchema), async (req, res) => {
   const d = req.body;
   try {
     const r = await runSql(
@@ -92,17 +93,24 @@ router.post('/', async (req, res) => {
 });
 
 // UPDATE transaction
-router.put('/:id', async (req, res) => {
+router.put('/:id', validateRequest(transactionSchema), async (req, res) => {
   const { id } = req.params;
   const d = req.body;
+  if (!d.updated_at) return res.status(400).json({ error: 'updated_at is required for conflict resolution' });
+
   try {
     const old = await queryOne('SELECT * FROM transactions WHERE txn_id = ?', [id]);
     if (!old) return res.status(404).json({ error: 'Transaction not found' });
 
-    await runSql(
-      `UPDATE transactions SET txn_date=?, txn_type=?, category=?, party_id=?, linked_invoice_id=?, amount=?, remarks=?, updated_at=datetime('now') WHERE txn_id=?`,
-      [d.txn_date, d.txn_type, d.category, d.party_id || null, d.linked_invoice_id || null, d.amount, d.remarks || null, id]
+    const r = await runSql(
+      `UPDATE transactions SET txn_date=?, txn_type=?, category=?, party_id=?, linked_invoice_id=?, amount=?, remarks=?, updated_at=datetime('now') WHERE txn_id=? AND updated_at=?`,
+      [d.txn_date, d.txn_type, d.category, d.party_id || null, d.linked_invoice_id || null, d.amount, d.remarks || null, id, d.updated_at]
     );
+
+    if (r.changes === 0) {
+      return res.status(409).json({ error: 'Conflict: Record was modified by another user.' });
+    }
+
     await audit('UPDATE', 'transactions', id, old, d, `Updated transaction #${id}`);
     res.json({ success: true });
   } catch (err) {
@@ -113,12 +121,16 @@ router.put('/:id', async (req, res) => {
 // DELETE transaction
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
+  const { reason, device_info } = req.body;
   try {
     const old = await queryOne('SELECT * FROM transactions WHERE txn_id = ?', [id]);
     if (!old) return res.status(404).json({ error: 'Transaction not found' });
 
     await runSql("UPDATE transactions SET is_deleted=1, updated_at=datetime('now') WHERE txn_id=?", [id]);
-    await audit('DELETE', 'transactions', id, old, null, `Deleted transaction #${id}`);
+    
+    const auditRemarks = `Deleted transaction #${id}${reason ? ` | Reason: ${reason}` : ''}${device_info ? ` [Device: ${device_info}]` : ''}`;
+    await audit('DELETE', 'transactions', id, old, null, auditRemarks);
+    
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

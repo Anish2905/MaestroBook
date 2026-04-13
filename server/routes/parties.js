@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { queryAll, queryOne, runSql, audit } from '../db.js';
+import { partySchema, validateRequest } from '../validators.js';
 
 const router = Router();
 
@@ -34,7 +35,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // CREATE party
-router.post('/', async (req, res) => {
+router.post('/', validateRequest(partySchema), async (req, res) => {
   const d = req.body;
   try {
     const r = await runSql(
@@ -49,17 +50,24 @@ router.post('/', async (req, res) => {
 });
 
 // UPDATE party
-router.put('/:id', async (req, res) => {
+router.put('/:id', validateRequest(partySchema), async (req, res) => {
   const { id } = req.params;
   const d = req.body;
+  if (!d.updated_at) return res.status(400).json({ error: 'updated_at is required for conflict resolution' });
+
   try {
     const old = await queryOne('SELECT * FROM parties WHERE party_id=?', [id]);
     if (!old) return res.status(404).json({ error: 'Party not found' });
 
-    await runSql(
-      `UPDATE parties SET party_name=?, party_type=?, phone=?, address=?, notes=?, opening_balance=?, updated_at=datetime('now') WHERE party_id=?`,
-      [d.party_name, d.party_type, d.phone || null, d.address || null, d.notes || null, d.opening_balance || 0, id]
+    const r = await runSql(
+      `UPDATE parties SET party_name=?, party_type=?, phone=?, address=?, notes=?, opening_balance=?, updated_at=datetime('now') WHERE party_id=? AND updated_at=?`,
+      [d.party_name, d.party_type, d.phone || null, d.address || null, d.notes || null, d.opening_balance || 0, id, d.updated_at]
     );
+
+    if (r.changes === 0) {
+      return res.status(409).json({ error: 'Conflict: Record was modified by another user.' });
+    }
+
     await audit('UPDATE', 'parties', id, old, d, `Updated: ${d.party_name}`);
     res.json({ success: true });
   } catch (err) {
@@ -70,12 +78,16 @@ router.put('/:id', async (req, res) => {
 // DELETE party
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
+  const { reason, device_info } = req.body;
   try {
     const old = await queryOne('SELECT * FROM parties WHERE party_id=?', [id]);
     if (!old) return res.status(404).json({ error: 'Party not found' });
 
     await runSql(`UPDATE parties SET is_deleted=1, updated_at=datetime('now') WHERE party_id=?`, [id]);
-    await audit('DELETE', 'parties', id, old, null, `Deleted: ${old.party_name}`);
+    
+    const auditRemarks = `Deleted: ${old.party_name}${reason ? ` | Reason: ${reason}` : ''}${device_info ? ` [Device: ${device_info}]` : ''}`;
+    await audit('DELETE', 'parties', id, old, null, auditRemarks);
+    
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -813,6 +813,11 @@ th.right {
 .grid-2-1 { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; }
 .grid-1-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; }
 
+.party-ledger-layout {
+  height: calc(100vh - 100px);
+}
+
+
 /* ============================================================
    UTILITY
    ============================================================ */
@@ -1388,3 +1393,206 @@ th.right {
    ============================================================ */
 
 .gap-4 { gap: 4px; }
+
+/* ============================================================
+   MOBILE RESPONSIVENESS
+   ============================================================ */
+
+.mobile-menu-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 299;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.sidebar-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: block;
+  }
+
+  /* Reset layout heights for native mobile scrolling */
+  html, body {
+    overflow-x: hidden !important;
+  }
+
+  html, body, #root, .app-layout, .main-area {
+    height: auto;
+    min-height: 100%;
+    overflow-y: visible;
+  }
+
+  .main-area {
+    display: block; /* Disable flex column to let height expand */
+  }
+
+  /* Make grids stack */
+  .grid-4, .grid-3, .grid-2, .grid-2-1, .grid-1-2 {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: -260px;
+    width: 260px;
+    height: 100vh !important; /* Force sidebar height back to viewport */
+    z-index: 300;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+  }
+
+  .sidebar.mobile-open {
+    left: 0;
+  }
+
+  .sidebar-overlay {
+    display: block;
+  }
+
+  /* Adjust Topbar for mobile - Stack to 2 rows */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    padding: 8px 12px;
+    gap: 10px;
+    flex-wrap: wrap;
+    height: auto;
+    min-height: auto;
+  }
+
+  .topbar-spacer {
+    display: none;
+  }
+
+  .topbar-search-wrapper {
+    width: 100%;
+    order: 5; /* Move to 2nd row */
+    margin-top: 2px;
+  }
+
+  .topbar-search {
+    width: 100% !important;
+    height: 38px;
+    font-size: 13px;
+    background: var(--card2);
+  }
+
+  .topbar-logo {
+    width: 20px;
+    height: 20px;
+  }
+
+  .topbar-title {
+    display: block; /* Show title but keep it small */
+    font-size: 12px;
+    flex: 1;
+  }
+
+  .btn-accent, .btn-ghost {
+    padding: 6px 10px;
+    font-size: 11px;
+    height: 32px;
+  }
+
+  .dashboard-hero {
+    flex-direction: column;
+    padding: 20px !important;
+    align-items: flex-start;
+    text-align: left;
+    gap: 16px;
+  }
+
+  .hero-logo {
+    width: 60px;
+    height: 60px;
+  }
+
+  .hero-title {
+    font-size: 18px;
+  }
+
+  .hero-subtitle {
+    font-size: 12px;
+  }
+
+  /* Make tables swipeable */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+
+  /* Make Modals full width */
+  .modal-box {
+    width: 94%;
+    padding: 18px;
+    max-height: 90vh;
+  }
+
+  /* Screen specific tweaks */
+  .content-area {
+    padding: 12px;
+    height: auto;
+    overflow: visible;
+  }
+
+  .metric-card {
+    padding: 14px;
+  }
+
+  .party-stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  .party-ledger-layout {
+    height: auto;
+  }
+
+  /* Fine-tune components */
+  .tab-bar {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab-item {
+    padding: 8px 12px;
+    font-size: 11.5px;
+  }
+
+  .metric-value {
+    font-size: 18px;
+  }
+
+  .modal-title {
+    font-size: 13px;
+  }
+
+  .btn {
+    font-size: 11px;
+    padding: 6px 12px;
+  }
+}
+

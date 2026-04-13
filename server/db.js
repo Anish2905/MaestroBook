@@ -64,6 +64,11 @@ export async function initDatabase() {
     `CREATE TABLE IF NOT EXISTS balance_overrides (override_id INTEGER PRIMARY KEY AUTOINCREMENT, party_id INTEGER NOT NULL REFERENCES parties(party_id), override_amount INTEGER NOT NULL, reason TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now')))`,
     `CREATE TABLE IF NOT EXISTS audit_log (log_id INTEGER PRIMARY KEY AUTOINCREMENT, action_type TEXT NOT NULL, table_affected TEXT NOT NULL, record_id INTEGER, old_value TEXT, new_value TEXT, remarks TEXT, changed_at TEXT DEFAULT (datetime('now')))`,
     `CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
+    `CREATE INDEX IF NOT EXISTS idx_invoices_party_deleted ON invoices(party_id, is_deleted)`,
+    `CREATE INDEX IF NOT EXISTS idx_transactions_party_deleted ON transactions(party_id, is_deleted)`,
+    `CREATE INDEX IF NOT EXISTS idx_invoices_type ON invoices(invoice_type)`,
+    `CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(txn_type)`,
+    `CREATE INDEX IF NOT EXISTS idx_balance_overrides_party ON balance_overrides(party_id)`,
     `INSERT OR IGNORE INTO settings (key, value) VALUES ('company_name', 'Maestro Engineering Works')`,
     `INSERT OR IGNORE INTO settings (key, value) VALUES ('fy_start', 'April')`
   ];
