@@ -47,7 +47,15 @@ router.get('/metrics', async (req, res) => {
 
     const now = new Date();
     const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-    const thisMonthSalesRow = await queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM invoices WHERE invoice_type='Sale' AND is_deleted=0 AND invoice_date >= ?`, [monthStart]);
+    const thisMonthSalesRow = await queryOne(`
+      SELECT COALESCE(SUM(i.amount), 0) as total 
+      FROM invoices i
+      JOIN parties p ON i.party_id = p.party_id
+      WHERE i.invoice_type='Sale' 
+        AND i.is_deleted=0 
+        AND p.is_deleted=0
+        AND i.invoice_date >= ?
+    `, [monthStart]);
     const thisMonthSales = thisMonthSalesRow?.total || 0;
 
     res.json({ toGet, toPay, netBalance, thisMonthSales });

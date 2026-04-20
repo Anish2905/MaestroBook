@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react'
-import { formatCurrency, formatDate, getTypeBadgeClass, getRelativeTime } from '../utils/format'
-import logo from '../assets/logo.png'
+import { formatCurrency, getRelativeTime } from '../utils/format'
 import { api } from '../api'
 
 function getActivityDotColor(icon) {
   switch (icon) {
-    case 'green': return 'var(--green)'
-    case 'red': return 'var(--red)'
-    case 'amber': return 'var(--accent2)'
-    case 'blue': return 'var(--blue)'
-    case 'purple': return 'var(--purple)'
-    default: return 'var(--muted)'
+    case 'green': return '#10B981'
+    case 'red': return '#f43f5e'
+    case 'amber': return '#facc15'
+    case 'blue': return '#3b82f6'
+    case 'purple': return '#a855f7'
+    default: return '#8a91ad'
   }
 }
 
@@ -39,120 +38,90 @@ export default function Dashboard({ openModal, onNavigate }) {
   }
 
   return (
-    <div className="dashboard-container">
-      {/* Hero Section */}
+    <div className="mobile-dashboard-container">
+      {/* Hero Header */}
       <div className="dashboard-hero">
-        <div className="hero-content">
-          <img src={logo} className="hero-logo" alt="Maestro Logo" />
-          <div>
-            <h1 className="hero-title">Maestro Engineering Works</h1>
-            <p className="hero-subtitle">Professional Bookkeeping & Transaction Management</p>
+        <h1 className="greeting-text">Good morning, Maestro</h1>
+        <p className="greeting-subtext">Here's your financial overview</p>
+      </div>
+
+      {/* Main Financial Summary Card (Luminous Ledger Style) */}
+      <div className="premium-summary-card">
+        <div className="summary-row">
+          <div className="summary-col">
+            <span className="summary-label">Total To Get</span>
+            <span className="summary-value text-green">{formatCurrency(metrics.toGet)}</span>
+          </div>
+          <div className="summary-col right">
+            <span className="summary-label">Total To Pay</span>
+            <span className="summary-value text-red">{formatCurrency(metrics.toPay)}</span>
           </div>
         </div>
-        <div className="hero-actions">
-          <button className="btn btn-accent" onClick={() => openModal('TXN_ENTRY')}>
-            + Record Transaction
-          </button>
+        <div className="summary-divider"></div>
+        <div className="summary-center">
+          <span className="summary-label">Net Balance</span>
+          <span className="summary-value-large">{formatCurrency(metrics.netBalance)}</span>
         </div>
       </div>
 
-      {/* Metric Cards */}
-      <div className="grid-4 mb-16">
-        <div className="metric-card metric-card-green">
-          <div className="metric-icon">↓</div>
-          <div className="metric-label">Total To Get</div>
-          <div className="metric-value metric-value-green">{formatCurrency(metrics.toGet)}</div>
-          <div className="metric-sub">Amount receivable from customers</div>
-        </div>
-        <div className="metric-card metric-card-red">
-          <div className="metric-icon">↑</div>
-          <div className="metric-label">Total To Pay</div>
-          <div className="metric-value metric-value-red">{formatCurrency(metrics.toPay)}</div>
-          <div className="metric-sub">Amount payable to vendors</div>
-        </div>
-        <div className="metric-card metric-card-amber">
-          <div className="metric-icon">⊘</div>
-          <div className="metric-label">Net Balance</div>
-          <div className="metric-value metric-value-amber">{formatCurrency(metrics.netBalance)}</div>
-          <div className="metric-sub">Receivable minus payable</div>
-        </div>
-        <div className="metric-card metric-card-blue">
-          <div className="metric-icon">◈</div>
-          <div className="metric-label">This Month Sales</div>
-          <div className="metric-value metric-value-blue">{formatCurrency(metrics.thisMonthSales)}</div>
-          <div className="metric-sub">Sales invoices this month</div>
-        </div>
+      {/* Action Buttons */}
+      <div className="action-buttons-row">
+        <button className="btn-action-primary" onClick={() => openModal('invoice', {})}>
+          + New Invoice
+        </button>
+        <button className="btn-action-secondary" onClick={() => openModal('receipt', {})}>
+          + New Payment
+        </button>
       </div>
 
-      {/* Two-column section */}
-      <div className="grid-2-1">
+      <div className="dashboard-lists-container">
         {/* Recent Activity */}
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">Recent Activity</span>
-            <span className="card-link" onClick={() => onNavigate('auditLog')}>View all →</span>
+        <div className="activity-list-container">
+          <div className="section-header">
+            <h2 className="section-title">Recent Activity</h2>
+            <span className="section-link" onClick={() => onNavigate('auditLog')}>View All</span>
           </div>
-          <div className="card-body">
-            <div className="activity-feed">
-              {recentActivity.map(item => (
-                <div className="activity-item" key={item.log_id}>
-                  <div
-                    className="activity-dot"
-                    style={{ backgroundColor: getActivityDotColor(item.icon) }}
-                  />
-                  <div className="activity-content">
-                    <div className="activity-desc">{item.description}</div>
-                    <div className="activity-meta">
-                      <span className={`badge ${
-                        item.action_type === 'INSERT' ? 'badge-green' :
-                        item.action_type === 'UPDATE' ? 'badge-amber' :
-                        item.action_type === 'DELETE' ? 'badge-red' :
-                        'badge-purple'
-                      }`} style={{ fontSize: 9, padding: '2px 6px' }}>
-                        {item.action_type === 'INSERT' ? 'Created' :
-                         item.action_type === 'UPDATE' ? 'Updated' :
-                         item.action_type === 'DELETE' ? 'Deleted' :
-                         'Adjusted'}
-                      </span>
-                      <span className="activity-time" title={item.changed_at}>
-                        {getRelativeTime(item.changed_at)}
-                      </span>
-                    </div>
+          <div className="activity-list">
+            {recentActivity.map(item => (
+              <div className="activity-row" key={item.log_id}>
+                <div className="activity-dot-large" style={{ backgroundColor: getActivityDotColor(item.icon) }} />
+                <div className="activity-content-flex">
+                  <div className="activity-title">{item.description}</div>
+                  <div className="activity-meta-flex">
+                    <span className={`badge-minimal ${item.action_type}`}>{item.action_type}</span>
+                    <span className="activity-time">{getRelativeTime(item.changed_at)}</span>
                   </div>
                 </div>
-              ))}
-              {recentActivity.length === 0 && (
-                <div style={{ textAlign: 'center', color: 'var(--muted)', padding: 24, fontSize: 12 }}>
-                  No activity yet. Click "+ New Entry" to begin.
-                </div>
-              )}
-            </div>
+              </div>
+            ))}
+            {recentActivity.length === 0 && (
+              <div className="empty-state-text">No recent activity.</div>
+            )}
           </div>
         </div>
 
         {/* Top Outstanding */}
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">Top Outstanding (To Get)</span>
+        <div className="outstanding-list-container">
+          <div className="section-header">
+            <h2 className="section-title">Top Outstanding</h2>
           </div>
-          <div className="card-body">
+          <div className="outstanding-list">
             {topOutstanding.map(party => {
-              const balance = party.total_billed + party.opening_balance - party.total_received
+              const balance = party.total_billed + party.opening_balance - party.total_received;
               return (
-                <div className="outstanding-row" key={party.party_id}>
-                  <div>
+                <div className="outstanding-item" key={party.party_id} onClick={() => onNavigate('ledger')}>
+                  <div className="outstanding-party-info">
                     <div className="outstanding-name">{party.party_name}</div>
-                    <div className="outstanding-ref">Outstanding balance</div>
+                    <div className="outstanding-sub">{party.total_billed > 0 ? `${Math.round((balance / party.total_billed) * 100)}% pending` : 'Outstanding balance'}</div>
                   </div>
-                  <div>
-                    <div className="outstanding-amt text-green">{formatCurrency(balance)}</div>
-                    <div className="outstanding-days">{party.total_billed > 0 ? `${Math.round((balance / party.total_billed) * 100)}% pending` : ''}</div>
+                  <div className="outstanding-amount text-green">
+                    {formatCurrency(balance)}
                   </div>
                 </div>
-              )
+              );
             })}
             {topOutstanding.length === 0 && (
-              <div style={{ textAlign: 'center', color: 'var(--muted)', padding: 24, fontSize: 12 }}>No outstanding amounts</div>
+              <div className="empty-state-text">All accounts settled.</div>
             )}
           </div>
         </div>
